@@ -1,0 +1,15 @@
+[remap]
+
+importer="ogg_vorbis"
+type="AudioStreamOGGVorbis"
+path="res://.import/fortnite.ogg-02067a8b9b85fba2c08e09b4b3d4475c.oggstr"
+
+[deps]
+
+source_file="res://fortnite.ogg"
+dest_files=[ "res://.import/fortnite.ogg-02067a8b9b85fba2c08e09b4b3d4475c.oggstr" ]
+
+[params]
+
+loop=true
+loop_offset=0

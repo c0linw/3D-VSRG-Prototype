@@ -1,0 +1,25 @@
+[gd_scene load_steps=3 format=2]
+
+[ext_resource path="res://Images/UI/startbutton.png" type="Texture" id=1]
+[ext_resource path="res://SongSelectMenu.gd" type="Script" id=2]
+
+[node name="SongSelectMenu" type="Node2D"]
+script = ExtResource( 2 )
+
+[node name="StartButton" type="Button" parent="."]
+margin_left = 407.0
+margin_top = 242.0
+margin_right = 619.0
+margin_bottom = 348.0
+icon = ExtResource( 1 )
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="VolumeSlider" type="HSlider" parent="."]
+margin_right = 16.0
+margin_bottom = 16.0
+__meta__ = {
+"_edit_use_anchors_": false
+}
+[connection signal="button_up" from="StartButton" to="." method="_on_StartButton_button_up"]
