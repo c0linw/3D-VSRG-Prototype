@@ -15,8 +15,6 @@ var audio_offset = 0
 var closest = 0
 var time_off_beat = 0.0
 
-signal beat(position)
-
 
 func _ready():
 	pass
@@ -26,19 +24,7 @@ func set_bpm(num):
 	sec_per_beat = 60.0 / bpm
 
 func _process(_delta):
-	if playing:
-		var new_position = get_playback_position() + AudioServer.get_time_since_last_mix()
-		new_position -= AudioServer.get_output_latency()
-		if new_position > song_position:
-			song_position = new_position
-		song_position_in_beats = int(floor(song_position / sec_per_beat)) + beats_before_start
-		_report_beat()
-
-
-func _report_beat():
-	if last_reported_beat < song_position_in_beats:
-		emit_signal("beat", song_position_in_beats)
-		last_reported_beat = song_position_in_beats
+	update_song_position()
 
 
 func play_with_offset(secs):
@@ -69,4 +55,11 @@ func _on_StartTimer_timeout():
 	else:
 		play()
 		$StartTimer.stop()
-	_report_beat()
+
+func update_song_position():
+	if playing:
+		var new_position = get_playback_position() + AudioServer.get_time_since_last_mix()
+		new_position -= AudioServer.get_output_latency()
+		if new_position > song_position:
+			song_position = new_position
+		song_position_in_beats = int(floor(song_position / sec_per_beat)) + beats_before_start

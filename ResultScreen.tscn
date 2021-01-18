@@ -1,0 +1,99 @@
+[gd_scene load_steps=4 format=2]
+
+[ext_resource path="res://Images/UI/retry.png" type="Texture" id=1]
+[ext_resource path="res://Images/UI/return.png" type="Texture" id=2]
+[ext_resource path="res://ResultScreen.gd" type="Script" id=3]
+
+[node name="ResultScreen" type="Node2D"]
+script = ExtResource( 3 )
+
+[node name="PerfectLabel" type="Label" parent="."]
+margin_left = 401.0
+margin_top = 141.0
+margin_right = 453.0
+margin_bottom = 155.0
+text = "PERFECT"
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="GreatLabel" type="Label" parent="."]
+margin_left = 401.0
+margin_top = 159.0
+margin_right = 442.0
+margin_bottom = 173.0
+text = "GREAT"
+
+[node name="PoorLabel" type="Label" parent="."]
+margin_left = 402.0
+margin_top = 178.0
+margin_right = 442.0
+margin_bottom = 192.0
+text = "POOR"
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="MissLabel" type="Label" parent="."]
+margin_left = 401.0
+margin_top = 196.0
+margin_right = 441.0
+margin_bottom = 210.0
+text = "MISS"
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="PerfectCount" type="Label" parent="."]
+margin_right = 40.0
+margin_bottom = 14.0
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="GreatCount" type="Label" parent="."]
+margin_right = 40.0
+margin_bottom = 14.0
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="PoorCount" type="Label" parent="."]
+margin_right = 40.0
+margin_bottom = 14.0
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="MissCount" type="Label" parent="."]
+margin_right = 40.0
+margin_bottom = 14.0
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="ReturnButton" type="TextureButton" parent="."]
+margin_left = 241.011
+margin_top = 298.503
+margin_right = 399.011
+margin_bottom = 409.503
+texture_normal = ExtResource( 2 )
+expand = true
+stretch_mode = 4
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="RetryButton" type="TextureButton" parent="."]
+margin_left = 475.941
+margin_top = 300.416
+margin_right = 691.941
+margin_bottom = 416.416
+texture_normal = ExtResource( 1 )
+expand = true
+stretch_mode = 4
+__meta__ = {
+"_edit_use_anchors_": false
+}
+[connection signal="button_up" from="ReturnButton" to="." method="_on_ReturnButton_button_up"]
+[connection signal="button_up" from="RetryButton" to="." method="_on_RetryButton_button_up"]

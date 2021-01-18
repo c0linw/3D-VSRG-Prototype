@@ -11,7 +11,7 @@ var slidertail_velocity
 func _ready():
 	var surfTool = SurfaceTool.new()
 	var mesh = Mesh.new()
-	var material = SpatialMaterial.new()
+	material = SpatialMaterial.new()
 	material.flags_transparent = true
 	material.albedo_color = Color(0.215, 0.722, 0.188, 0.70)
 	# lower right triangle

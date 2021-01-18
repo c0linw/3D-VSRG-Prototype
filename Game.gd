@@ -10,6 +10,10 @@ var note_hold_start_obj = preload("res://Note_Hold_Start.tscn")
 var note_hold_end_obj = preload("res://Note_Hold_End.tscn")
 var note_hold_flick_obj = preload("res://Note_Hold_Flick.tscn")
 var sliderbody = preload("res://SliderBody.tscn")
+var perfect_plus_graphic = preload("res://Perfect_Plus.tscn")
+var perfect_graphic = preload("res://Perfect.tscn")
+var great_graphic = preload("res://Great.tscn")
+var miss_graphic = preload("res://Miss.tscn")
 
 # var audio_file = "res://Songs/Fortnite/fortnite.ogg"
 # var audio_file = "res://Songs/Bon Appetit S/bonappetit.ogg"
@@ -22,10 +26,10 @@ var audio
 # var chart_file = "res://Songs/Bon Appetit S/bonappetit.json"
 # var chart_file = "res://Songs/Unite! From A to Z/etuze.json"
 # var chart_file = "res://Songs/Dantalion/dantalion.json"
-var chart_file = "res://Songs/Roku Chounen to Ichiya Monogatari/roku_sp.json"
+var chart_file = "res://Songs/Roku Chounen to Ichiya Monogatari/roku_holds.json"
 var chart
 
-var offset_option = 0.175
+var offset_option = 0.080
 var note_speed = 10.5
 var lane_length = 12.0
 var note_screen_time
@@ -35,13 +39,36 @@ var notes_to_spawn = []
 var scrollmod_list = []
 var onscreen_notes = []
 var onscreen_slides = []
+var touch_bindings = [] # stores dicts that contain the note type and its lane/slide_pos (depending on type)
 
 var scrollmod = 1.0
 var last_timestamp = 0.0
 var chart_timestamp = 0.0
 
+# at 2164 x 1080 resolution:
+# lane is 1522 pixels wide (at the top of judgement line) - half of that is 761
+	# 1522/7 = 217.4285. Since the middle is wider, let's use 218 for lane width.
+	# exact lane width is 0.20 * screen height
+# lane is 864 pixels from the top of the screen (to the top of the judgement line) - that's 80% of the height.
+var lane_hitboxes = []
+
+# Array of arrays of note results. Each inner array stores the hit error of the notes for a given judgement category.
+# for example, PERFECT+ judgements are stored in judge_results[0] and might look like [0.004, -0.020, 0.015, ...]
+var judge_results = [[],[],[],[]] 
+
 # Called when the node enters the scene tree for the first time.
 func _ready():
+	var view_coords = get_viewport().size
+	for i in range(0,7):
+		# exact horizontal hitbox for each lane is 0.2 * height (and then with a half-lane leniency on each side)
+		# vertical hitbox spans the lower 40% of the screen
+		lane_hitboxes.append([view_coords[0]/2 + view_coords[1]*0.2*(i-3.5) - view_coords[1]*0.1, 
+							view_coords[0]/2 + view_coords[1]*0.2*(i-2.5) + view_coords[1]*0.1, 
+							view_coords[1]*0.6, 
+							view_coords[1]]) 
+	for i in range(0,20):
+		touch_bindings.append(null)
+	
 	note_screen_time = (12.0 - note_speed) / 2.0
 	note_units_per_sec = lane_length/note_screen_time
 	audio = load(audio_file)
@@ -50,19 +77,101 @@ func _ready():
 	process_notes()
 	$Conductor.volume_db = -10.0
 	$Conductor.play_from_beat(0, 0)
+	
+func _input(event):
+	if event is InputEventScreenTouch:
+		$Conductor.update_song_position()
+		var event_time = $Conductor.song_position
+		if event.pressed == true: # tap input
+			for note in onscreen_notes:
+				if note.can_judge(event_time) && is_in_lane(event.position, note.lane):
+					if note.type == "tap":
+						# judge() returns [judgement type, hit error]
+						var judgement = note.judge(event_time)
+						# add the hit error to the corresponding sub-array
+						judge_results[judgement[0]].append(judgement[1])
+						draw_judgement(judgement, note.lane)
+						delete_note(note)
+					elif note.type == "hold_start" || note.type == "slide_start":
+						# judge() returns [judgement type, hit error]
+						var judgement = note.judge(event_time)
+						# add the hit error to the corresponding sub-array
+						judge_results[judgement[0]].append(judgement[1])
+						draw_judgement(judgement, note.lane)
+						touch_bindings[event.index] = note
+						note.held = true
+		else: # check hold ends and slide ends
+			var end_reached = false
+			for note in onscreen_notes:
+				# TODO: check that the index is correct
+				if (note.type == "hold_end" || note.type == "slide_end") && is_in_lane(event.position, note.lane) && note.can_judge(event_time):
+					# judge() returns [judgement type, hit error]
+					var judgement = note.judge(event_time)
+					# add the hit error to the corresponding sub-array
+					judge_results[judgement[0]].append(judgement[1])
+					draw_judgement(judgement, note.lane)
+					delete_note(note)
+					end_reached = true
+					break
+			# TODO: change it so that touch binding note is unconditionally deleted upon release
+			if touch_bindings[event.index] != null: # we released but did not hit any hold end, and also currently holding a note
+				var note = touch_bindings[event.index]
+				if !end_reached:
+					# delete corressponding end to currently held note
+					delete_end(note)
+				delete_note(note)
+			touch_bindings[event.index] = null
+	elif event is InputEventScreenDrag: # check for active sliderticks or flicks
+		pass
+		
+func is_in_lane(coords, lane):
+	# check that it is within the rectangular hitbox of the current lane
+	return coords[0] >= lane_hitboxes[lane-1][0] && coords[0] <= lane_hitboxes[lane-1][1] && coords[1] >= lane_hitboxes[lane-1][2] && coords[1] <= lane_hitboxes[lane-1][3]
+	# the chart lanes are 1-indexed so we use i + 1
+	
+func delete_end(hold_start): 
+	var end_found = false
+	if hold_start.type == "hold_start":
+		for note in onscreen_notes: # TODO: search through onscreen notes first
+			if (note.type == "hold_end" || note.type ==  "hold_end_flick") && note.lane == hold_start.lane:
+				judge_results[3].append(0) 
+				draw_judgement([3,0], note.lane)
+				delete_note(note)
+				end_found = true
+				break
+		if !end_found: # if no onscreen hold end was found, delete the earliest corresponding hold end in notes_to_spawn
+			for note_data in notes_to_spawn:
+				if (note_data["notetype"] == "hold_end" || note_data["notetype"] == "hold_end_flick") && note_data["lane"] == hold_start.lane:
+					judge_results[3].append(0) 
+					draw_judgement([3,0], note_data["lane"])
+					notes_to_spawn.erase(note_data)
+					end_found = true
+					break
+	elif hold_start.type == "slide_start" || hold_start.type == "slide_tick":
+		for note in onscreen_notes:
+			if (note.type == "slide_tick" || note.type == "slide_end" || note.type == "slide_end_flick") && note.slide_pos == hold_start.slide_pos:
+				judge_results[3].append(0) 
+				draw_judgement([3,0], note.lane)
+				delete_note(note)
+				end_found = true
+				break
+		if !end_found: # if no onscreen slide end was found, delete the earliest corresponding slide end in notes_to_spawn
+			for note_data in notes_to_spawn:
+				if (note_data["notetype"] == "slide_tick" || note_data["notetype"] == "slide_end" || note_data["notetype"] == "slide_end_flick") && note_data["lane"] == hold_start.lane:
+					judge_results[3].append(0) 
+					draw_judgement([3,0], note_data["lane"])
+					notes_to_spawn.erase(note_data)
+					end_found = true
+					break
+
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
-func _process(delta):
+func _process(_delta):
 	var timestamp = $Conductor.song_position
 	var curr_note_screen_time = note_screen_time/scrollmod
-	var chart_timestamp_diff_split = [] # contains dicts that pair timespans with scrollmods. Iterate to apply each one so that positions stay accurate at boundary changes.
 	
 	for sv in scrollmod_list:
 		if timestamp >= sv["time"]:
-			var new_segment = {}
-			new_segment["time_diff"] = (sv["time"]-last_timestamp)*scrollmod
-			new_segment["scrollmod"] = scrollmod
-			chart_timestamp_diff_split.append(new_segment)
 			
 			chart_timestamp += (sv["time"]-last_timestamp)*scrollmod # account for any bit of the old scrollmod that was missed
 			scrollmod = sv["velocity"]
@@ -72,11 +181,6 @@ func _process(delta):
 		else: 
 			break
 	
-	var last_chart_timestamp = chart_timestamp
-	var new_segment = {}
-	new_segment["time_diff"] = (timestamp-last_timestamp)*scrollmod
-	new_segment["scrollmod"] = scrollmod
-	chart_timestamp_diff_split.append(new_segment)
 	chart_timestamp += (timestamp-last_timestamp)*scrollmod
 	
 	for note_data in notes_to_spawn:
@@ -85,15 +189,33 @@ func _process(delta):
 		else:
 			break # assumes all notes are stored in ascending time
 	for note in onscreen_notes:
-		if chart_timestamp >= note.chart_time + 8:
-			delete_note(note)
-		if note.type == "slide_start" || note.type == "slide_tick":
-			if chart_timestamp >= note.chart_time:
-				if chart_timestamp >= note.slidertail_time:
+		if timestamp >= note.time + note.late_great:
+			if note.type == "slide_start" || note.type == "slide_tick" || note.type == "hold_start":
+				# missed the timing window to start holding the note
+				if !note.held:
+					judge_results[3].append(0) 
+					draw_judgement([3,0], note.lane)
+					delete_end(note)
+					delete_note(note)
+				# otherwise the note is still being held and will keep existing until released (see _input) or reaching the next slide/hold note
+			else:
+				# judge_results[3] stores misses
+				# append 0 because we don't bother calculating timing error on misses
+				judge_results[3].append(0) 
+				draw_judgement([3,0], note.lane)
+				delete_note(note)
+		if note.type == "slide_start" || note.type == "slide_tick" || note.type == "slide_end" || note.type == "slide_end_flick":
+			if chart_timestamp >= note.chart_time && (note.type != "slide_end" && note.type != "slide_end_flick"):
+				if chart_timestamp >= note.slidertail_time: # deletes note if we've reached the next slider node
 					delete_note(note)
 				else:
 					var new_x = note.lane - 4 + (note.slidertail_lane-note.lane) * ((chart_timestamp-note.chart_time)/(note.slidertail_time-note.chart_time))
 					note.translation = Vector3(new_x,0,0)
+			else:
+				note.translation = Vector3(note.lane-4,0,-lane_length*2*(note.chart_time-chart_timestamp)/note_screen_time)
+		elif note.type == "hold_start":
+			if note.held:
+				note.translation = Vector3(note.lane-4,0,0)
 			else:
 				note.translation = Vector3(note.lane-4,0,-lane_length*2*(note.chart_time-chart_timestamp)/note_screen_time)
 		else:
@@ -114,6 +236,25 @@ func _process(delta):
 				var far_x = slide.sliderhead_lane + (slide.slidertail_lane-slide.sliderhead_lane) * min(x_time_interp_factor, 1) - 4
 				slide.set_corners(close_x-0.4, close_z, close_x+0.4, close_z, far_x-0.4, far_z, far_x+0.4, far_z)
 	last_timestamp = timestamp
+
+# judgement is an array containing [judge_type, offset]
+# lane is passed in as 1-indexed 
+func draw_judgement(judgement, lane):
+	var graphic
+	match judgement[0]:
+		0: 
+			graphic = perfect_plus_graphic.instance()
+		1:
+			graphic = perfect_graphic.instance()
+		2:
+			graphic = great_graphic.instance()
+		3:
+			graphic = miss_graphic.instance()
+	# x is centered in lane
+	# y is slightly above judgement line
+	graphic.position = Vector2((lane_hitboxes[lane-1][0]+lane_hitboxes[lane-1][1])/2 - get_viewport().size[1]*0.1,
+								get_viewport().size[1]*0.7)
+	$CanvasLayer.add_child(graphic)
 
 func load_chart(file_path):
 	var file = File.new()
@@ -276,6 +417,10 @@ func spawn_note(note):
 func delete_note(note_to_delete):
 	remove_child(note_to_delete)
 	onscreen_notes.erase(note_to_delete)
+	if note_to_delete.type == "hold_start" || note_to_delete.type == "slide_tick" || note_to_delete.type == "slide_start":
+		var search_result = touch_bindings.find(note_to_delete)
+		if search_result != -1:
+			touch_bindings[search_result] = null
 	note_to_delete.queue_free()
 
 # Check for a corresponding end that is in the same lane and has no in-between nodes  
@@ -337,3 +482,6 @@ func is_hold_end(note_data, index):
 	# no matching start found, return false by default
 	return false
 
+func _on_Conductor_finished():
+	if get_tree().change_scene("res://ResultScreen.tscn") != OK:
+		print ("Error changing scene to ResultScreen")

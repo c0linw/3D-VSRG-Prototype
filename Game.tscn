@@ -1,8 +1,10 @@
-[gd_scene load_steps=4 format=2]
+[gd_scene load_steps=6 format=2]
 
 [ext_resource path="res://Lanes.tscn" type="PackedScene" id=1]
 [ext_resource path="res://Conductor.tscn" type="PackedScene" id=2]
 [ext_resource path="res://Game.gd" type="Script" id=3]
+[ext_resource path="res://Framerate.gd" type="Script" id=4]
+[ext_resource path="res://CanvasLayer.gd" type="Script" id=5]
 
 [node name="Game" type="Spatial"]
 script = ExtResource( 3 )
@@ -14,3 +16,18 @@ transform = Transform( 1, 0, 0, 0, 0.819152, 0.573577, 0, -0.573577, 0.819152, 0
 current = true
 
 [node name="Conductor" parent="." instance=ExtResource( 2 )]
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+script = ExtResource( 5 )
+
+[node name="Framerate" type="Label" parent="CanvasLayer"]
+margin_left = 161.0
+margin_top = 125.0
+margin_right = 327.0
+margin_bottom = 194.0
+size_flags_stretch_ratio = 2.0
+script = ExtResource( 4 )
+__meta__ = {
+"_edit_use_anchors_": false
+}
+[connection signal="finished" from="Conductor" to="." method="_on_Conductor_finished"]
